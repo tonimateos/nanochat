@@ -186,8 +186,8 @@ class GPT(nn.Module):
         # To support meta device initialization, we init the rotary embeddings here, but it's just "fake" meta tensors only.
         # As for rotary_seq_len, these rotary embeddings are pretty small/cheap in memory,
         # so let's just over-compute them by 10X, but assert fail if we ever reach that amount.
-        # In the future we can dynamically grow the cache, for now it's fine.
-        self.rotary_seq_len = config.sequence_len * 10 # 10X over-compute should be enough, TODO make nicer?
+        # We also enforce a minimum of 4096 to ensure headroom for evaluation tasks (like 10-shot SQuAD).
+        self.rotary_seq_len = max(config.sequence_len * 10, 4096)
         head_dim = config.n_embd // config.n_head
         cos, sin = self._precompute_rotary_embeddings(self.rotary_seq_len, head_dim)
         self.register_buffer("cos", cos, persistent=False) # persistent=False means it's not saved to the checkpoint
@@ -298,6 +298,11 @@ class GPT(nn.Module):
 
     def get_device(self):
         return self.transformer.wte.weight.device
+
+    @property
+    def max_seq_len(self):
+        """Standard attribute for eval scripts to know when to truncate."""
+        return self.rotary_seq_len
 
     def estimate_flops(self):
         """
