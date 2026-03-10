@@ -16,8 +16,15 @@ python -m scripts.custom.inspect_tokens
 
 **Output:**
 - Total vocabulary size.
-- List of special tokens and their IDs (e.g., `<|bos|>`, `<|user_start|>`).
 - Samples of "merges" (common character combinations).
+
+### 2. Checkpoint Inspection (`inspect_checkpoint.py`)
+Loads a saved checkpoint (weights, metadata, and optimizer state) and prints summary statistics to ensure training is healthy (no NaNs, weights are changing).
+
+**How to run:**
+```bash
+python -m scripts.custom.inspect_checkpoint
+```
 
 ---
 
@@ -38,7 +45,3 @@ python -m scripts.base_train \
     --sample-every=20 \
     --run=my-first-run
 ```
-
----
-
-## Tokenizer Internals
