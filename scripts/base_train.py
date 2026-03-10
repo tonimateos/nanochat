@@ -459,11 +459,20 @@ while True:
             "If 5*x + 3 = 13, then x is",
         ]
         engine = Engine(orig_model, tokenizer) # use orig_model to avoid recompilation
+        sample_data = []
         for prompt in prompts:
             tokens = tokenizer(prompt, prepend="<|bos|>")
             with disable_fp8(orig_model):
                 sample, _ = engine.generate_batch(tokens, num_samples=1, max_tokens=16, temperature=0)
-            print0(tokenizer.decode(sample[0]))
+            decoded_sample = tokenizer.decode(sample[0])
+            print0(decoded_sample)
+            sample_data.append([step, prompt, decoded_sample])
+        
+        # Log to wandb as a table
+        if not use_dummy_wandb:
+            columns = ["step", "prompt", "sample"]
+            wandb_run.log({"samples": wandb.Table(columns=columns, data=sample_data)}, commit=False)
+        
         model.train()
 
     # save checkpoint: at the end of the run, or every save_every steps, except at the first step or the resume step
