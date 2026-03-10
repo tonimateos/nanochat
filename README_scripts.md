@@ -54,3 +54,21 @@ python -m scripts.base_train \
     --run=my-first-run \
     --wandb-log-every=1
 ```
+
+## Training Log Explanation
+
+When running `base_train.py`, you will see lines like this in your console:
+`step 00499/04000 (12.47%) | loss: 7.457520 | lrm: 1.00 | dt: 19.05ms | tok/sec: 13,435 | bf16_mfu: 0.00 | epoch: 1 pq: 0 rg: 1 | total time: 0.16m | eta: 1.1m`
+
+- **step**: Current iteration / Total planned iterations (Percentage complete).
+- **loss**: The "Cross-Entropy Loss". Measures how poorly the model predicted the next token. (10.4 is random; < 4.0 is getting coherent).
+- **lrm**: Learning Rate Multiplier. Starts at 0 (warmup), goes to 1.0, then decays (warmdown) to 0.05 at the end.
+- **dt**: Delta Time. Time taken for one full training step (forward + backward pass).
+- **tok/sec**: Throughput. Number of text tokens processed per second. Higher is better!
+- **bf16_mfu**: Model FLOPs Utilization. Efficiency of the GPU usage (Note: This is usually 0.00 on Mac/MPS as it's optimized for NVIDIA).
+- **epoch**: How many times we've looped through the entire dataset.
+- **pq / rg**: Internal data loader indices. Useful for technical debugging of data resumes.
+- **total time**: Clock time since training started.
+- **eta**: Estimated time remaining until the run finishes.
+
+---
