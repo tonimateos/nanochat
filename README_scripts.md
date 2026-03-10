@@ -51,5 +51,6 @@ python -m scripts.base_train \
     --num-iterations=100 \
     --core-metric-every=-1 \
     --sample-every=20 \
-    --run=my-first-run
+    --run=my-first-run \
+    --wandb-log-every=1
 ```
