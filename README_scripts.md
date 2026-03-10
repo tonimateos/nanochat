@@ -1,6 +1,6 @@
-# Custom Debugging Scripts
+# Custom Debugging Scripts (Mac M2 8GB RAM)
 
-This directory (and fork) is aimed at adding custom debugging and visualization scripts to `nanochat`.
+This directory (and fork) is aimed at adding custom debugging and visualization scripts to `nanochat`. All experiments and configurations here are optimized for a **Mac M2 with 8GB of RAM**.
 
 ## Available Scripts
 
@@ -21,12 +21,24 @@ python -m scripts.custom.inspect_tokens
 
 ---
 
+## Pretraining (Mac M2 Optimized)
+
+To train a "tiny" model that fits within 8GB of RAM, use the following configuration:
+
+```bash
+source .venv/bin/activate
+python -m scripts.base_train \
+    --depth=2 \
+    --max-seq-len=256 \
+    --device-batch-size=1 \
+    --total-batch-size=256 \
+    --window-pattern=L \
+    --num-iterations=100 \
+    --core-metric-every=-1 \
+    --sample-every=20 \
+    --run=my-first-run
+```
+
+---
+
 ## Tokenizer Internals
-
-When you train a tokenizer using `scripts.tok_train`, it generates two key files in `~/.cache/nanochat/tokenizer/`:
-
-### 1. `tokenizer.pkl` (The Dictionary)
-This is a pickled `tiktoken` encoding object. It contains the mapping between text strings and their integer IDs. It is used during both training (to turn text into tensors) and inference (to turn the model's numbers back into readable text).
-
-### 2. `token_bytes.pt` (The Metric Helper)
-This is a PyTorch tensor that stores the raw byte length of every token in the vocabulary. Nanochat uses this to calculate **"Bits Per Byte" (bpb)**, a metric that allows you to compare models fairly even if they use different tokenizers or vocabulary sizes.
