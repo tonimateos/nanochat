@@ -26,10 +26,15 @@ Loads a saved checkpoint (weights, metadata, and optimizer state) and prints sum
 python -m scripts.custom.inspect_checkpoint
 ```
 
-### 3. Model Sampling (`sample.py`)
+### 3. Model Sampling (`sample.py` or `base_eval.py`)
 Generates text from a saved base model checkpoint. Note that extremely small models or those early in training (like 100 steps) will likely produce gibberish.
 
-**How to run:**
+**Using `base_eval.py` (standard):**
+```bash
+python -m scripts.base_eval --model-tag d6 --step 800 --eval sample
+```
+
+**Using `sample.py` (custom prompt/tokens):**
 ```bash
 python -m scripts.custom.sample --prompt "The capital of France is" --num-tokens 50
 ```
