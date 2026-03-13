@@ -124,6 +124,28 @@ Unlike **BERT**, which uses **Masked Language Modeling (MLM)** (filling in blank
 
 ---
 
+### Phase Comparison: Pretraining vs. SFT vs. RLHF
+To understand where we are in the pipeline, think of training a chef:
+
+1.  **Pretraining (The Library Phase)**: 
+    - **Method**: Self-supervised learning on massive internet data.
+    - **Analogy**: Reading every cookbook and menu in the world. 
+    - **Result**: The chef knows what food looks like, but doesn't know how to take an order.
+2.  **SFT: Supervised Fine-Tuning (The Recipe Phase)**: 
+    - **Method**: **Mimicry**. Following exact `(Prompt, Ideal Response)` pairs.
+    - **Analogy**: Following exact recipes. The chef is told: "When someone asks for an omelet, say 'Certainly!' and follow these steps."
+    - **Setup**: Before running SFT, you should download the identity data to ensure the model knows who it is:
+      ```bash
+      curl -L -o /Users/toni/.cache/nanochat/identity_conversations.jsonl https://karpathy-public.s3.us-west-2.amazonaws.com/identity_conversations.jsonl
+      ```
+    - **Current Stage**: This is what `scripts/chat_sft.py` does.
+3.  **RLHF: Reinforcement Learning (The Tasting Phase)**: 
+    - **Method**: **Optimization via Rewards**. 
+    - **Analogy**: The chef makes 3 omelets, and a human says "Omelet #2 is the best." The chef adjusts to make more like #2.
+    - **Final Stage**: This is handled by `scripts/chat_rl.py`.
+
+---
+
 ## Evaluation Metrics Explained
 
 To understand how "smart" or "healthy" your model is, we use several key metrics across different scripts.
