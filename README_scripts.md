@@ -165,6 +165,13 @@ So, when adding human knowledge to the computation, we are effectively reducing 
 
 results after 10K iterations:
 
-Evaluating: hellaswag_zeroshot (0-shot, type: multiple_choice)... accuracy: 0.2866 | centered: 0.0488 | time: 320.25s
-Evaluating: jeopardy (10-shot, type: language_modeling)... accuracy: 0.0019 | centered: 0.0019 | time: 72.89s
-Evaluating: bigbench_qa_wikidata (10-shot, type: language_modeling)... accuracy: 0.0701 | centered: 0.0701 | time: 363.14s
+Evaluating: hellaswag_zeroshot (0-shot, type: multiple_choice)... accuracy: 0.2866 | centered: 0.0488 | time: 309.48s
+Evaluating: jeopardy (10-shot, type: language_modeling)... accuracy: 0.0019 | centered: 0.0019 | time: 70.77s
+Evaluating: bigbench_qa_wikidata (10-shot, type: language_modeling)... accuracy: 0.0701 | centered: 0.0701 | time: 347.65s
+Evaluating: arc_easy (10-shot, type: multiple_choice)... accuracy: 0.4415 | centered: 0.2553 | time: 1104.89s
+Evaluating: arc_challenge (10-shot, type: multiple_choice)... accuracy: 0.2406 | centered: -0.0125 | time: 193.61s
+Evaluating: copa (0-shot, type: multiple_choice)... accuracy: 0.4700 | centered: -0.0600 | time: 2.17s
+Evaluating: commonsense_qa (10-shot, type: multiple_choice)... accuracy: 0.3522 | centered: 0.1902 | time: 300.18s
+Evaluating: piqa (10-shot, type: multiple_choice)... accuracy: 0.6110 | centered: 0.2220 | time: 247.85s
+Evaluating: openbook_qa (0-shot, type: multiple_choice)... accuracy: 0.2620 | centered: 0.0160 | time: 9.93s
+Evaluating: lambada_openai (0-shot, type: language_modeling)... accuracy: 0.1846 | centered: 0.1846 | time: 155.27s
