@@ -144,3 +144,9 @@ So, when adding human knowledge to the computation, we are effectively reducing 
 ---
 
 ---
+
+results after 10K iterations:
+
+Evaluating: hellaswag_zeroshot (0-shot, type: multiple_choice)... accuracy: 0.2866 | centered: 0.0488 | time: 320.25s
+Evaluating: jeopardy (10-shot, type: language_modeling)... accuracy: 0.0019 | centered: 0.0019 | time: 72.89s
+Evaluating: bigbench_qa_wikidata (10-shot, type: language_modeling)... accuracy: 0.0701 | centered: 0.0701 | time: 363.14s
