@@ -88,5 +88,50 @@ When running `base_train.py`, you will see lines like this in your console:
 - **pq / rg**: Internal data loader indices. Useful for technical debugging of data resumes.
 - **total time**: Clock time since training started.
 - **eta**: Estimated time remaining until the run finishes.
+|
+## Evaluation Metrics Explained
+
+To understand how "smart" or "healthy" your model is, we use several key metrics across different scripts.
+
+### 1. CORE Metric (`--eval core`)
+**What it is:** The **DCLM CORE** benchmark. It measures the base model's zero/few-shot intelligence.
+- **How it works:** The model is given a few examples (In-Context Learning) and asked to solve a variety of tasks (science, reasoning, etc.).
+- **What to look for:** A score of **0.0** means random guessing. A score of **~0.25** is roughly GPT-2 capability. Higher is better.
+
+### 2. Bits Per Byte (BPB) (`--eval bpb`)
+**What it is:** A measure of how well a language model has "compressed" its training data.
+- **Why it's better than Loss:** Raw loss depends on your tokenizer (vocab size). If Model A has 50k tokens and Model B has 100k, their raw losses are not comparable. BPB normalizes the loss by the **actual number of bytes** (UTF-8 characters) each token represents.
+- **How it's calculated:** `BPB = Total Loss (Nats) / (ln(2) * Total Bytes)`. This converts the loss into bits per character.
+- **Interpretations:**
+    - **8.0 BPB**: Roughly random guessing for standard ASCII text.
+    - **~1.0 BPB**: A very strong model (approaching GPT-2/GPT-3 level compression).
+- **Overfitting check:** If your `train bpb` is significantly lower than your `val bpb`, your model is memorizing the training data rather than learning general patterns.
+
+### 3. Sampling (`--eval sample`)
+**What it is:** A qualitative "sanity check." The model is given a prompt to see if it generates something that makes sense to a human.
+- **Conditioned Sampling:** Prompting with "The capital of France is" to see if it says "Paris."
+- **Unconditioned Sampling:** Allowing the model to speak freely from a blank slate to see its "inner thoughts."
+
+### 4. Loss Function (The "loss" in logs)
+**What it is:** `nanochat` uses **Cross-Entropy Loss**, but with a modern stability trick called **Logit Soft-Capping**.
+- **The Trick:** Before calculating the loss, logits are "squashed" into the range **[-15, 15]** using `F.tanh`. This prevents any single prediction from becoming too extreme, making training much more stable and preventing "loss spikes."
+- **Precision:** While training happens in `bfloat16`, the loss is calculated in `float32` (full precision) to ensure numerical accuracy.
+- **Conversion to BPB:** The raw loss (calculated in "nats") is converted to bits (base-2) and normalized by the number of bytes to produce the **BPB** score.
+- **Theoretical Minimum:** 
+    - In pure math, the minimum loss is **0.0** (if the model predicts the correct token with 100% probability).
+    - In practice, the true minimum is determined by the **Entropy of the Source Data** (the "Bayes Error Rate").
+    - For example, if your dataset was just the letter "A" repeated a billion times, the minimum loss would be 0.0. 
+    - For **Natural Language**, the entropy is typically estimated to be around **0.7 to 1.1 BPB**. You will never reach 0.0 on real language data unless you are overfitting (memorizing).
+
+### 5. ChatCORE (SFT/RL stage)
+**What it is:** Specifically for models that have undergone Supervised Fine-Tuning (SFT). It tests the model's ability to follow instructions and chat.
+- **Tasks included:**
+  - **MMLU / ARC**: General knowledge and multiple-choice reasoning.
+  - **GSM8K**: Grade school math problems.
+  - **HumanEval**: Basic Python coding tasks.
+  - **SpellingBee**: Testing the model's ability to count letters (e.g., "how many 'r' in strawberry?").
+- **What to look for:** Since these are harder tasks, any score above **0.0** (random) means the model is actually starting to "understand" instructions.
+
+---
 
 ---
