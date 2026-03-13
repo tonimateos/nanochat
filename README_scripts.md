@@ -123,6 +123,15 @@ To understand how "smart" or "healthy" your model is, we use several key metrics
     - For example, if your dataset was just the letter "A" repeated a billion times, the minimum loss would be 0.0. 
     - For **Natural Language**, the entropy is typically estimated to be around **0.7 to 1.1 BPB**. You will never reach 0.0 on real language data unless you are overfitting (memorizing).
 
+#### A Note on Information Theory (Shannon Entropy)
+When we say common English has an entropy of ~1.0 BPB, we are referring to the **Entropy Rate** of the language, which depends on **contextual knowledge**:
+1.  **Symbolic Entropy (The Baseline)**: If you look at every byte in isolation, English has about **4.5 bits per character**. This is the entropy if you had *zero* knowledge of the language other than how often individual letters appear.
+2.  **Conditional Entropy (Knowledge of Language)**: As you learn the "rules" of language (grammar, common phrases, logic), the predictability of the next character increases. Knowing "The capital of Fra..." makes "n" almost certain because your *model of language* allows you to use conditional probabilities.
+3.  **Entropy Rate (The Limit)**: This is the limit as context goes to infinity. It represents the absolute minimum number of bits needed (on average) to describe each character if you know *all* the rules and facts about the world.
+4.  **The Model's Job**: Modern LLMs like `nanochat` are essentially trying to internalize "standard knowledge of language" into their weights to reach this 1.0 limit. A lower BPB means your model has a more accurate "knowledge of language."
+
+So, when adding human knowledge to the computation, we are effectively reducing the entropy of the language model from 4.5 BPB to 1.0 BPB.
+
 ### 5. ChatCORE (SFT/RL stage)
 **What it is:** Specifically for models that have undergone Supervised Fine-Tuning (SFT). It tests the model's ability to follow instructions and chat.
 - **Tasks included:**
