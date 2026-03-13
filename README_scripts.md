@@ -89,6 +89,24 @@ When running `base_train.py`, you will see lines like this in your console:
 - **total time**: Clock time since training started.
 - **eta**: Estimated time remaining until the run finishes.
 |
+## Technical Deep-Dives
+
+### 1. Dataloader Progress (`epoch`, `pq`, `rg`)
+When training, the logs show `epoch: 1 pq: 10 rg: 500`. Here is what they mean:
+- **Epoch**: One complete pass through the entire 400B token dataset. Because the dataset is so large, you will likely stay on `epoch: 1` for most of your training. Most modern LLMs are trained for less than one full epoch.
+- **pq (Parquet Index)**: The index of the specific file in the dataset currently being read.
+- **rg (Row Group Index)**: The specific chunk of data *within* that parquet file.
+These markers allow the training to precisely resume from where it left off if it is interrupted.
+
+### 2. The Training Task: Next Token Prediction (GPT vs. BERT)
+Unlike **BERT**, which uses **Masked Language Modeling (MLM)** (filling in blanks in the middle of a sentence), `nanochat` uses **Causal Language Modeling (CLM)**, or **Next Token Prediction**.
+
+- **The Task**: For every token in the input, the model is asked: *"Given everything you've seen so far, what is the single most likely next token?"*
+- **The Architecture**: It uses a **Causal Mask** in the attention mechanism. This ensures that when the model is predicting the token at position $T$, it is physically incapable of seeing any information from positions $T+1, T+2, \dots$.
+- **Why it matters**: This is exactly how the model learns to "speak" autoregressively. By learning to predict the next token millions of times, it internalizes grammar, logic, and facts.
+
+---
+
 ## Evaluation Metrics Explained
 
 To understand how "smart" or "healthy" your model is, we use several key metrics across different scripts.
