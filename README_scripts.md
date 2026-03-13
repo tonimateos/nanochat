@@ -26,7 +26,24 @@ Loads a saved checkpoint (weights, metadata, and optimizer state) and prints sum
 python -m scripts.custom.inspect_checkpoint
 ```
 
-### 3. Model Sampling (`sample.py` or `base_eval.py`)
+### 3. Dataset Inspection (`inspect_dataset.py`)
+Visualizes the pretraining dataset, showing raw text, tokens, and BOS alignment.
+
+### 4. SFT Data Inspection (`inspect_sft_data.py`)
+Visualizes the fine-tuning data mixture (SmolTalk, GSM8K, etc.). 
+
+**Understanding the Output:**
+- **RED tokens**: These are the **User Prompts** (or instructions). The script shows them as masked in the targets (`ignore_index=-1`), meaning the model is exposed to them but is not trained to predict them.
+- **GREEN tokens**: These are the **Assistant Responses**. This is what the model is specifically learning to generate.
+- **[BOS] and [PAD]**: Identifies Beginning of Sequence markers and padding tokens used to fill the context window.
+- **Packing**: Shows how multiple conversations are packed together in a single row using the best-fit algorithm to ensure 100% token utilization.
+
+**How to run:**
+```bash
+uv run python -m scripts.custom.inspect_sft_data
+```
+
+### 5. Model Sampling (`sample.py` or `base_eval.py`)
 Generates text from a saved base model checkpoint. Note that extremely small models or those early in training (like 100 steps) will likely produce gibberish.
 
 **Using `base_eval.py` (standard):**
