@@ -39,6 +39,19 @@ python -m scripts.base_eval --model-tag d6 --step 800 --eval sample
 python -m scripts.custom.sample --prompt "The capital of France is" --num-tokens 50
 ```
 
+### 4. Dataset Inspection (`inspect_dataset.py`)
+Reads and prints the actual text content of the training shards (ClimbMix-400B) to understand what the model is learning from.
+
+**How to run:**
+```bash
+python -m scripts.custom.inspect_dataset --num-shards 1 --num-docs 5
+```
+
+**Optional arguments:**
+- `--num-shards`: Number of shards to sample from (default: 1).
+- `--num-docs`: Number of documents to show per shard (default: 3).
+- `--shard-index`: Specific shard index to inspect (e.g., `--shard-index 0`).
+
 ---
 
 ## Pretraining (Mac M2 Optimized)
