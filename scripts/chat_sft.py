@@ -66,6 +66,9 @@ parser.add_argument("--chatcore-max-sample", type=int, default=24, help="max pro
 # Data mixture
 parser.add_argument("--mmlu-epochs", type=int, default=3, help="number of epochs of MMLU in training mixture (teaches Multiple Choice)")
 parser.add_argument("--gsm8k-epochs", type=int, default=4, help="number of epochs of GSM8K in training mixture (teaches Math and Tool Use)")
+# Hugging Face Integration
+parser.add_argument("--hf-repo", type=str, default="", help="Hugging Face model repository to upload checkpoints to (e.g., 'username/nanochat-checkpoints')")
+parser.add_argument("--hf-space", type=str, default="", help="Hugging Face space repository to pause at the end of training (e.g., 'username/nanochat-space')")
 args = parser.parse_args()
 user_config = vars(args).copy()
 # -----------------------------------------------------------------------------
@@ -74,6 +77,21 @@ user_config = vars(args).copy()
 device_type = autodetect_device_type() if args.device_type == "" else args.device_type
 ddp, ddp_rank, ddp_local_rank, ddp_world_size, device = compute_init(device_type)
 master_process = ddp_rank == 0
+
+if args.hf_space and master_process:
+    import atexit
+    def pause_hf_space():
+        if getattr(args, '_hf_space_paused', False): return
+        from huggingface_hub import HfApi
+        print0(f"Pausing Hugging Face Space: {args.hf_space}")
+        try:
+            HfApi().pause_space(repo_id=args.hf_space)
+            args._hf_space_paused = True
+            print0("Hugging Face Space paused successfully.")
+        except Exception as e:
+            print0(f"Failed to pause Hugging Face Space: {e}")
+    atexit.register(pause_hf_space)
+
 print0(f"COMPUTE_DTYPE: {COMPUTE_DTYPE} ({COMPUTE_DTYPE_REASON})")
 synchronize = torch.cuda.synchronize if device_type == "cuda" else lambda: None
 get_max_memory = torch.cuda.max_memory_allocated if device_type == "cuda" else lambda: 0
@@ -420,6 +438,20 @@ while True:
             },
             rank=ddp_rank,
         )
+
+        if args.hf_repo and master_process:
+            from huggingface_hub import HfApi
+            try:
+                print0(f"Uploading checkpoints to Hugging Face Hub: {args.hf_repo}")
+                api = HfApi()
+                model_name = f"model_{step:06d}.pt"
+                meta_name = f"meta_{step:06d}.json"
+                api.upload_file(path_or_fileobj=os.path.join(checkpoint_dir, model_name), path_in_repo=f"{output_dirname}/{model_name}", repo_id=args.hf_repo)
+                api.upload_file(path_or_fileobj=os.path.join(checkpoint_dir, meta_name), path_in_repo=f"{output_dirname}/{meta_name}", repo_id=args.hf_repo)
+                print0("Upload to Hugging Face Hub complete.")
+            except Exception as e:
+                print0(f"Failed to upload to Hugging Face Hub: {e}")
+
 
     if last_step:
         break
