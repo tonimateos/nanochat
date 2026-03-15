@@ -114,10 +114,15 @@ def download_file_with_lock(url, filename, postprocess_fn=None):
 
     return file_path
 
-def print0(s="",**kwargs):
-    ddp_rank = int(os.environ.get('RANK', 0))
-    if ddp_rank == 0:
-        print(s, **kwargs)
+def print0(*args, **kwargs):
+    import sys
+    if dist.is_initialized():
+        if dist.get_rank() == 0:
+            print(*args, **kwargs, flush=True)
+            sys.stdout.flush()
+    else:
+        print(*args, **kwargs, flush=True)
+        sys.stdout.flush()
 
 def print_banner():
     # Cool DOS Rebel font ASCII banner made with https://manytools.org/hacker-tools/ascii-banner/

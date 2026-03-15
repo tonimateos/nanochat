@@ -28,9 +28,24 @@ def evaluate_bpb(model, batches, steps, token_bytes):
     total_nats = torch.tensor(0.0, dtype=torch.float32, device=model.get_device())
     total_bytes = torch.tensor(0, dtype=torch.int64, device=model.get_device())
     batch_iter = iter(batches)
-    for _ in range(steps):
+    rank = dist.get_rank() if dist.is_initialized() else 0
+    for i in range(steps):
+        if rank == 0:
+            if steps > 10 and (i % (steps // 10) == 0):
+                print(f"Evaluation progress: {100 * i // steps}% ({i}/{steps} steps)", flush=True)
+            elif i < 5: 
+                print(f" DEBUG: Step {i}: starting fetch...", flush=True)
+        
         x, y = next(batch_iter)
+        
+        if rank == 0 and i < 5:
+            print(f" DEBUG: Step {i}: starting forward pass...", flush=True)
+            
         loss2d = model(x, y, loss_reduction='none') # (B, T)
+        
+        if rank == 0 and i < 5:
+            print(f" DEBUG: Step {i}: accumulating results...", flush=True)
+            
         loss2d = loss2d.view(-1) # flatten
         y = y.view(-1) # flatten
         if (y.int() < 0).any(): # mps does not currently have kernel for < 0 for int64, only int32
