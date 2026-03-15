@@ -67,8 +67,8 @@ parser.add_argument("--chatcore-max-sample", type=int, default=24, help="max pro
 parser.add_argument("--mmlu-epochs", type=int, default=3, help="number of epochs of MMLU in training mixture (teaches Multiple Choice)")
 parser.add_argument("--gsm8k-epochs", type=int, default=4, help="number of epochs of GSM8K in training mixture (teaches Math and Tool Use)")
 # Hugging Face Integration
-parser.add_argument("--hf-repo", type=str, default="", help="Hugging Face model repository to upload checkpoints to (e.g., 'username/nanochat-checkpoints')")
-parser.add_argument("--hf-space", type=str, default="", help="Hugging Face space repository to pause at the end of training (e.g., 'username/nanochat-space')")
+parser.add_argument("--hf-repo", type=str, default=os.getenv("HF_REPO", ""), help="Hugging Face model repository to upload checkpoints to (e.g., 'username/nanochat-checkpoints')")
+parser.add_argument("--hf-space", type=str, default=os.getenv("HF_SPACE", ""), help="Hugging Face space repository to pause at the end of training (e.g., 'username/nanochat-space')")
 args = parser.parse_args()
 user_config = vars(args).copy()
 # -----------------------------------------------------------------------------
