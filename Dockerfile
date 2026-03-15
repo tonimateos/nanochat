@@ -14,4 +14,4 @@ RUN pip install uv && uv pip install --system -r pyproject.toml
 
 # The command to execute when the container starts
 # The script will automatically pick up HF_REPO and HF_SPACE environment variables
-CMD ["python", "scripts/chat_sft.py"]
+CMD ["python", "-m", "scripts.chat_sft"]

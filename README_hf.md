@@ -39,9 +39,7 @@ The PyTorch training script (`scripts/chat_sft.py`) has already been updated to 
 **Authentication:** Both of these features require an `HF_TOKEN` environment variable with **write** permissions to your account in order to authenticate the uploads and pause actions.
 
 Example command (which will be in the Dockerfile):
-```bash
-python scripts/chat_sft.py
-```
+python -m scripts.chat_sft
 
 ### 3. Create a Custom Docker Space and Push Code
 
