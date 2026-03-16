@@ -6,14 +6,15 @@ This guide details how to train the `nanochat` model from scratch using Hugging 
 
 - **Hugging Face Account**: You need an account on huggingface.co.
 - **Access Token**: An `HF_TOKEN` with **write** permissions to your account.
-- **Model Repository**: A created Model repository on Hugging Face where your checkpoints will be stored (e.g., `tonimateos/nanochat-checkpoints`).
+- **Model Repository**: A created Model repository on Hugging Face where your checkpoints will be stored (e.g., `your-username/nanochat-checkpoints`).
 
 ## Approach Overview
 
 1. **High-End GPUs**: We use Hugging Face Docker Spaces which can be equipped with powerful GPUs and charge per minute.
-2. **Auto-Pause (Cost Savings)**: To stop paying immediately after training finishes (or crashes), the training script will use the `huggingface_hub` API to programmatically pause the Space.
-3. **Continuous Checkpointing**: The training loop will automatically upload checkpoint `.pt` files to your HF Model repository during the run.
-4. **Live Debugging**: You can monitor training progress (loss, tokens/sec) in real-time through the Space's "Logs" tab.
+2. **Full Pipeline From Scratch**: The Space is configured to run `scripts/hf_full_run.sh`, which downloads the dataset, trains the tokenizer, pre-trains a base model from scratch, and finally performs Supervised Fine-Tuning (SFT).
+3. **Continuous Checkpointing**: Once SFT finishes, the script will automatically upload the final model checkpoint `.pt` files to your HF Model repository.
+4. **Auto-Pause (Cost Savings)**: To stop paying immediately after the uploaded finishes (or if it crashes), the training script will use the `huggingface_hub` API to programmatically pause the Space.
+5. **Live Debugging**: You can monitor training progress (loss, tokens/sec) in real-time through the Space's "Logs" tab.
 
 ## Step-by-Step Setup
 
@@ -29,17 +30,16 @@ You will need a dedicated **Model Repository** on Hugging Face to store your mod
 
 You will use the identifier `your-username/your-model-name` in your training script to specify where to upload the files.
 
-### 2. Configure the Training Script
+### 2. Configure the Training Pipeline
 
-The PyTorch training script (`scripts/chat_sft.py`) has already been updated to handle Hugging Face checkpoint uploads and auto-shutdown. It detects two optional environment variables to enable these features:
+The Dockerfile is configured to run `bash scripts/hf_full_run.sh`. This script will orchestrate downloading the data, pre-training the base model, and running the Supervised Fine-Tuning.
 
-- `HF_REPO`: The identifier for your checkpoint repository (e.g., `your-username/nanochat-checkpoints`). If provided, the script will automatically upload `.pt` and `.json` checkpoint files here during training.
-- `HF_SPACE`: The identifier for your running Space (e.g., `your-username/nanochat-training-space`). If provided, the script will automatically pause the Space when training finishes or crashes.
+The final fine-tuning step has been updated to handle Hugging Face checkpoint uploads and auto-shutdown. It detects two optional environment variables to enable these features:
+
+- `HF_REPO`: The identifier for your checkpoint repository (e.g., `your-username/nanochat-checkpoints`). If provided, the script will automatically upload `.pt` and `.json` checkpoint files here at the end of training.
+- `HF_SPACE`: The identifier for your running Space (e.g., `your-username/nanochat-training-space`). If provided, the script will automatically pause the Space when the pipeline completely finishes or crashes.
 
 **Authentication:** Both of these features require an `HF_TOKEN` environment variable with **write** permissions to your account in order to authenticate the uploads and pause actions.
-
-Example command (which will be in the Dockerfile):
-python -m scripts.chat_sft
 
 ### 3. Create a Custom Docker Space and Push Code
 
@@ -79,3 +79,28 @@ Hugging Face Spaces allow you to run any Docker container.
 
 - **Live Logs**: Click the **Logs** tab in your Space UI to stream `stdout` and `stderr` exactly like a local terminal. This is where you monitor your loss and training speed.
 - **Accessing Weights**: Visit your `nanochat-checkpoints` Model repository on the Hub at any time to see and download the `.pt` files uploaded by your script.
+
+### 6. Using Your Trained Model
+
+Once the space auto-pauses, your model is fully trained and securely saved in your `nanochat-checkpoints` repository. The training Space turns off to save money. You have two primary ways to interact with your new AI:
+
+#### Option A: Chat Locally (Free)
+1. Download the `model_XXXXXX.pt` and `meta_XXXXXX.json` files from your `nanochat-checkpoints` repository.
+2. Place these files on your local machine in the correct cache directory (e.g., `~/.cache/nanochat/chatsft_checkpoints/d24/`).
+3. Chat via the **terminal**:
+   ```bash
+   python -m scripts.chat_cli -p "Why is the sky blue?"
+   ```
+   *(Leave out the `-p` string to start an interactive back-and-forth session)*
+4. Chat via the **Web UI** (ChatGPT clone):
+   ```bash
+   python -m scripts.chat_web
+   ```
+   *(This hosts a local webpage at `http://127.0.0.1:8000/` you can open in your browser)*
+
+#### Option B: Host it on Hugging Face (Public Web App)
+If you want the model to be permanently hosted on the internet for others to use:
+1. Create a **brand new**, separate Hugging Face Space.
+2. Instead of `Docker`, select **Gradio** or **Streamlit** as the SDK.
+3. Keep the hardware set to a cheap/free CPU or very small GPU.
+4. Configure that new Space to download your `.pt` file from your checkpoints repository and run the UI!
