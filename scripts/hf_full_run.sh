@@ -6,6 +6,9 @@ export OMP_NUM_THREADS=1
 # Determine number of GPUs for multi-GPU setups (like 4xL40S)
 N_GPUS=$(python -c "import torch; print(torch.cuda.device_count() if torch.cuda.is_available() else 1)")
 
+# Disable torch.compile to prevent hanging in HF Spaces (which have strict Docker shm and CPU limits)
+export TORCH_COMPILE_DISABLE=1
+
 if [ "$N_GPUS" -gt 1 ]; then
     CMD_PREFIX="torchrun --standalone --nproc_per_node=$N_GPUS"
     echo "Detected $N_GPUS GPUs. Using torchrun."
