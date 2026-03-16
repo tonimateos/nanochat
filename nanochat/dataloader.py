@@ -16,6 +16,7 @@ Fallback to the original if you have very limited data AND long documents:
 https://github.com/karpathy/nanochat/blob/3c3a3d7/nanochat/dataloader.py#L78-L117
 """
 
+import os
 import torch
 import pyarrow.parquet as pq
 
@@ -77,6 +78,13 @@ def tokenizing_distributed_data_loader_with_state_bos_bestfit(
     device="cuda", resume_state_dict=None,
     buffer_size=1000
 ):
+    # Hugging Face Spaces Docker has restrictive memory limits (30GB RAM for an L4).
+    # Since we are using an enormous batch size, loading 1000 documents into the buffer
+    # while PyArrow decodes them causes massive RAM spikes that OOM-kill the process. 
+    if os.environ.get("HF_SPACE"):
+        buffer_size = 50
+        tokenizer_batch_size = 16
+        tokenizer_threads = 1
     """
     BOS-aligned dataloader with Best-Fit Cropping.
 

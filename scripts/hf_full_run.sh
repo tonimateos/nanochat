@@ -9,6 +9,18 @@ N_GPUS=$(python -c "import torch; print(torch.cuda.device_count() if torch.cuda.
 # Disable torch.compile to prevent hanging in HF Spaces (which have strict Docker shm and CPU limits)
 export TORCH_COMPILE_DISABLE=1
 
+# Force Python output to be unbuffered so we can see exact logs if it hangs
+export PYTHONUNBUFFERED=1
+
+# Drastically limit thread pool sizes to prevent HF Space 8-vCPU Docker deadlocks
+export OMP_NUM_THREADS=4
+export MKL_NUM_THREADS=4
+export OPENBLAS_NUM_THREADS=4
+export VECLIB_MAXIMUM_THREADS=4
+export NUMEXPR_NUM_THREADS=4
+export TORCH_NUM_THREADS=4
+export RAY_DISABLE_MEMORY_MONITOR=1
+
 if [ "$N_GPUS" -gt 1 ]; then
     CMD_PREFIX="torchrun --standalone --nproc_per_node=$N_GPUS"
     echo "Detected $N_GPUS GPUs. Using torchrun."
@@ -52,7 +64,7 @@ echo "========================================="
 # Download synthetic identity conversations for persona
 NANOCHAT_BASE_DIR=${NANOCHAT_BASE_DIR:-"$HOME/.cache/nanochat"}
 mkdir -p $NANOCHAT_BASE_DIR
-curl -L -o $NANOCHAT_BASE_DIR/identity_conversations.jsonl https://karpathy-public.s3.us-west-2.amazonaws.com/identity_conversations.jsonl
+python -c "import urllib.request; urllib.request.urlretrieve('https://karpathy-public.s3.us-west-2.amazonaws.com/identity_conversations.jsonl', '$NANOCHAT_BASE_DIR/identity_conversations.jsonl')"
 
 # Run SFT (This script will automatically upload checkpoints to HF_REPO and pause HF_SPACE when finished)
 $CMD_PREFIX -m scripts.chat_sft --device-batch-size=16
