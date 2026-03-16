@@ -55,8 +55,10 @@ wait $DATASET_DOWNLOAD_PID
 echo "========================================="
 echo "2. Base Model Pretraining (from scratch)"
 echo "========================================="
-# Train the base model (d24 is equivalent to GPT-2 size)
-$CMD_PREFIX -m scripts.base_train --depth=24 --target-param-data-ratio=9.5 --device-batch-size=16 $EXTRA_ARGS
+# Train a GPT-2 Small sized model (d12) for faster iteration on a single L4.
+# We also reduce --eval-tokens to ~1M so that validation steps take seconds, not minutes.
+$CMD_PREFIX -m scripts.base_train --depth=12 --target-param-data-ratio=9.5 --device-batch-size=32 --eval-tokens=1048576 $EXTRA_ARGS
+
 
 echo "========================================="
 echo "3. Supervised Fine-Tuning (SFT)"

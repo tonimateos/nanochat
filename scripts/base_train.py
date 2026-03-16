@@ -412,6 +412,7 @@ while True:
 
     # once in a while: evaluate the val bpb (all ranks participate)
     if args.eval_every > 0 and (last_step or step % args.eval_every == 0):
+        print0(f"Step {step:05d} | Starting validation evaluation on {args.eval_tokens:,} tokens...")
         model.eval()
         val_loader = build_val_loader()
         eval_steps = args.eval_tokens // (args.device_batch_size * args.max_seq_len * ddp_world_size)
