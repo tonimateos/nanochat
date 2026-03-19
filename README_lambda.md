@@ -46,11 +46,11 @@ Clone the repository and start the speedrun:
 git clone https://github.com/tonimateos/nanochat.git
 cd nanochat
 
-# Follow the standard setup (assuming `uv` or standard Python venv is used)
-# If uv is not installed: curl -LsSf https://astral.sh/uv/install.sh | sh
+# Follow the standard setup using `uv`
+# (If uv is not installed: curl -LsSf https://astral.sh/uv/install.sh | sh)
 uv venv
 source .venv/bin/activate
-uv pip install -r pyproject.toml # or equivalent dependency installation
+uv pip install -r pyproject.toml
 
 # Start the training
 # You have two good options to prevent the training from dying if your SSH disconnects:
@@ -106,11 +106,14 @@ By default, Lambda Cloud only opens port 22 (SSH). To access the web UI, you mus
 > **🛑 WHEN YOU STOP PAYING:** You only stop paying when you completely **Terminate / Delete** the instance. Simply stopping the training script or closing SSH **does not** stop the billing. On Lambda, if you restart or stop the machine, you might still be billed for the storage or the reservation of the node. **To stop the meter, you must delete the instance.**
 
 **Before you terminate:**
-Since terminating destroys all data on the node, make sure to download any checkpoints or edited files you want to keep. From your local machine, run:
+Since terminating destroys all data on the node, make sure to download any checkpoints or edited files you want to keep. By default, the `speedrun.sh` script produces exactly two files: one final base model and one final SFT chat model (each ~3GB in size). From your local machine, run:
 
 ```bash
-# Download the checkpoints folder
-scp -r ubuntu@<PUBLIC_IP>:/home/ubuntu/nanochat/checkpoints/ /path/to/local/save/dir/
+# Download the final chat-tuned models
+scp -r ubuntu@<PUBLIC_IP>:/home/ubuntu/nanochat/chatsft_checkpoints/ /path/to/local/save/dir/
+
+# (Optional) Download the base pre-training models if you want them
+scp -r ubuntu@<PUBLIC_IP>:/home/ubuntu/nanochat/base_checkpoints/ /path/to/local/save/dir/
 ```
 
 After downloading your models, go to the Lambda Cloud Dashboard, select your instance, and click **Terminate**. Double-check that it disappears from your active instances list to ensure billing has stopped.
@@ -122,7 +125,7 @@ You can easily host your trained model for free using Hugging Face (HF) Spaces a
 ### Step 1: Upload your Checkpoint to HF
 1. Create a free account on [Hugging Face](https://huggingface.co/).
 2. Create a new **Model Repository** (e.g., `my-nanochat-gpt2`).
-3. Upload your trained checkpoint file. The final trained model should be something like `checkpoints/d24/model_sft.pt` (or the latest step from the `sft` stage).
+3. Upload your trained checkpoint file. The final trained model will be located in your downloaded `chatsft_checkpoints` folder (e.g., `chatsft_checkpoints/d24/model_YYYYYY.pt` where YYYYYY is the final step number). Select the one with the highest step number.
 4. Also upload the `tokenizer.model` file from your repo if you trained a custom one (or if it requires it).
 
 ### Step 2: Create a Hugging Face Space
@@ -154,8 +157,8 @@ Clone your Space to your local machine (or add files directly via the HF web int
    from nanochat.engine import Engine
 
    # 1. Download your model from your HF model repo
-   # Replace 'username/my-nanochat-gpt2' with your actual repo ID
-   checkpoint_path = hf_hub_download(repo_id="username/my-nanochat-gpt2", filename="model_sft.pt")
+   # Replace 'username/my-nanochat-gpt2' with your actual repo ID and the correct filename
+   checkpoint_path = hf_hub_download(repo_id="username/my-nanochat-gpt2", filename="model_YYYYYY.pt")
    
    # 2. Load the model and engine
    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
