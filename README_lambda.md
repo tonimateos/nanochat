@@ -129,7 +129,7 @@ The **Hugging Face Hub** is the primary source for community-shared checkpoints.
 |--------|------|-------------|
 | **Official/Students** | [nanochat-students](https://huggingface.co/nanochat-students) | The official community hub. Hosts `d20` series models. |
 | **Karpathy** | [karpathy](https://huggingface.co/karpathy) | Andrej Karpathy's HF profile. Check for larger `d32/d34` models. |
-| **Recommended (d24 Demo)** | [huwng/nanochat-d24](https://huggingface.co/huwng/nanochat-d24) | **Best for conversational demos.** Contains the `chatsft-d24` Chat SFT weights. |
+| **Recommended (d24 Demo)** | [huwng/nanochat-d24](https://huggingface.co/huwng/nanochat-d24) | **Best for conversational demos.** <br> • [Model (model_033491.pt)](https://huggingface.co/huwng/nanochat-d24/resolve/main/chatsft_checkpoints/d24/model_033491.pt?download=true) <br> • [Metadata (meta_033491.json)](https://huggingface.co/huwng/nanochat-d24/resolve/main/chatsft_checkpoints/d24/meta_033491.json?download=true) <br> • [Tokenizer (tokenizer.pkl)](https://huggingface.co/ChrisMcCormick/nanochat-d24-2026-02-02/resolve/main/tokenizer/tokenizer.pkl?download=true) |
 | **High-Quality Base** | [ChrisMcCormick/nanochat-d24](https://huggingface.co/ChrisMcCormick/nanochat-d24-2026-02-02) | Excellent `d24` base model (CORE 0.2633). No chat tuning. |
 | **Search All** | [Hugging Face Search](https://huggingface.co/models?search=nanochat) | Search for "nanochat" to see all community-uploaded models. |
 
@@ -159,8 +159,11 @@ You can easily host your trained model for free using Hugging Face (HF) Spaces a
 ### Step 1: Upload your Checkpoint to HF
 1. Create a free account on [Hugging Face](https://huggingface.co/).
 2. Create a new **Model Repository** (e.g., `my-nanochat-gpt2`).
-3. Upload your trained checkpoint file. The final trained model will be located in your downloaded `chatsft_checkpoints` folder (e.g., `chatsft_checkpoints/d24/model_YYYYYY.pt` where YYYYYY is the final step number). Select the one with the highest step number.
-4. Also upload the `tokenizer.model` file from your repo if you trained a custom one (or if it requires it).
+3. **Upload the files to the root of the repository** via the web UI (or via [git-lfs](https://git-lfs.github.com/)):
+    - **Model Checkpoint:** e.g., `model_033491.pt` (the one with the highest step number).
+    - **Metadata File:** e.g., `meta_033491.json` (crucial for loading the architecture config).
+    - **Tokenizer File:** e.g., `tokenizer.pkl` or `tokenizer.model`.
+4.  Ensure the file names you upload match the `filename` arguments in your `app.py` script.
 
 ### Step 2: Create a Hugging Face Space
 1. On Hugging Face, click on your profile and select **New Space**.
