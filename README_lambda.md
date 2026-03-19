@@ -174,7 +174,12 @@ You can easily host your trained model for free using Hugging Face (HF) Spaces a
 ### Step 3: Configure your Space
 Clone your Space to your local machine (or add files directly via the HF web interface). You need the following files inside your Space:
 
-1. **Your codebase:** Clone or copy the `nanochat` code into the Space repository.
+1.  **Your codebase:** Copy the `nanochat` directory into your Space using one of these methods:
+    -   **Option A (Web UI):** On the **Files** tab of your Space, click **+ Add file** -> **Upload files**. Drag and drop the **`nanochat/`** folder (from your local git repo) into the upload area. This includes all the core model and engine logic.
+    -   **Option B (Git CLI):** Clone your Space locally, copy the `nanochat/` folder from your development repo into the Space's local directory, then `git add`, `commit`, and `push`.
+
+> [!WARNING]  
+> **Avoid Nested Folders:** Ensure you are uploading the *inner* `nanochat/` folder (the Python package containing `__init__.py`). If you upload the entire repository, you will end up with a nested structure like `nanochat/nanochat/`, which will cause `ModuleNotFoundError`.
 2. **`requirements.txt`:** HF Gradio spaces automatically install dependencies from this file. Create it and add:
    ```text
    torch>=2.4.0
@@ -182,6 +187,7 @@ Clone your Space to your local machine (or add files directly via the HF web int
    transformers
    tqdm
    tiktoken
+   rustbpe
    ```
    *(Note: Add any other dependencies from `pyproject.toml` that your specific codebase requires).*
 
@@ -189,13 +195,14 @@ Clone your Space to your local machine (or add files directly via the HF web int
    ```python
    import os
    import sys
+
+   # CRITICAL: Add the current directory to path BEFORE any other imports
+   # so that the 'nanochat' package can be found effectively.
+   sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
    import gradio as gr
    import torch
    from huggingface_hub import hf_hub_download
-
-   # Ensure the 'nanochat' package is in the Python path
-   sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
    from nanochat.checkpoint_manager import load_model
    from nanochat.engine import Engine
 
