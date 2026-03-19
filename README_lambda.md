@@ -127,9 +127,11 @@ The **Hugging Face Hub** is the primary source for community-shared checkpoints.
 
 | Source | Link | Description |
 |--------|------|-------------|
-| **Official/Students** | [nanochat-students](https://huggingface.co/nanochat-students) | The official community hub for nanochat. Look for `base-d24` or `chatsft-d24` to match the current leaderboard. |
-| **Karpathy** | [karpathy](https://huggingface.co/karpathy) | Andrej Karpathy's HF profile. Check for models like `nanochat-d34` or newer variations. |
-| **Community** | [Hugging Face Search](https://huggingface.co/models?search=nanochat) | Search for "nanochat" to see checkpoints uploaded by other researchers. |
+| **Official/Students** | [nanochat-students](https://huggingface.co/nanochat-students) | The official community hub. Hosts `d20` series models. |
+| **Karpathy** | [karpathy](https://huggingface.co/karpathy) | Andrej Karpathy's HF profile. Check for larger `d32/d34` models. |
+| **Recommended (d24 Demo)** | [huwng/nanochat-d24](https://huggingface.co/huwng/nanochat-d24) | **Best for conversational demos.** Contains the `chatsft-d24` Chat SFT weights. |
+| **High-Quality Base** | [ChrisMcCormick/nanochat-d24](https://huggingface.co/ChrisMcCormick/nanochat-d24-2026-02-02) | Excellent `d24` base model (CORE 0.2633). No chat tuning. |
+| **Search All** | [Hugging Face Search](https://huggingface.co/models?search=nanochat) | Search for "nanochat" to see all community-uploaded models. |
 
 ### B. Standard OpenAI GPT-2 Models
 The `scripts/base_eval.py` script supports evaluating standard GPT-2 models via the Hugging Face `transformers` library.
