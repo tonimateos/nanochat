@@ -171,6 +171,21 @@ def load_model(source, *args, **kwargs):
     checkpoints_dir = os.path.join(base_dir, model_dir)
     return load_model_from_dir(checkpoints_dir, *args, **kwargs)
 
+def load_model_direct(checkpoint_path, device, phase):
+    """
+    Load a model from a specific .pt file path. 
+    Assumes the metadata file meta_XXXXXX.json is in the same directory.
+    """
+    checkpoint_dir = os.path.dirname(checkpoint_path)
+    filename = os.path.basename(checkpoint_path)
+    # Extract step from model_XXXXXX.pt
+    match = re.search(r"model_(\d+)\.pt", filename)
+    if not match:
+        raise ValueError(f"Could not extract step from filename {filename}. Expected format: model_XXXXXX.pt")
+    step = int(match.group(1))
+    log0(f"Loading model direct from {checkpoint_path} (step {step})")
+    return build_model(checkpoint_dir, step, device, phase)
+
 def load_optimizer_state(source, device, rank, model_tag=None, step=None):
     """Load just the optimizer shard for a given rank, without re-loading the model."""
     model_dir = {

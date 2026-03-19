@@ -203,7 +203,7 @@ Clone your Space to your local machine (or add files directly via the HF web int
    import gradio as gr
    import torch
    from huggingface_hub import hf_hub_download
-   from nanochat.checkpoint_manager import load_model
+   from nanochat.checkpoint_manager import load_model_direct
    from nanochat.engine import Engine
 
    # 1. Download your model from your HF model repo
@@ -212,7 +212,7 @@ Clone your Space to your local machine (or add files directly via the HF web int
    
    # 2. Load the model and engine
    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-   model, tokenizer, _ = load_model(checkpoint_path, device, phase="eval")
+   model, tokenizer, _ = load_model_direct(checkpoint_path, device, phase="eval")
    engine = Engine(model, tokenizer)
 
    # 3. Define the chat function
