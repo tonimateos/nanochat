@@ -187,9 +187,15 @@ Clone your Space to your local machine (or add files directly via the HF web int
 
 3. **`app.py`:** Create this python script to serve the web UI using Gradio:
    ```python
+   import os
+   import sys
    import gradio as gr
    import torch
    from huggingface_hub import hf_hub_download
+
+   # Ensure the 'nanochat' package is in the Python path
+   sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+
    from nanochat.checkpoint_manager import load_model
    from nanochat.engine import Engine
 
