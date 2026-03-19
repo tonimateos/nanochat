@@ -118,7 +118,39 @@ scp -r ubuntu@<PUBLIC_IP>:/home/ubuntu/nanochat/base_checkpoints/ /path/to/local
 
 After downloading your models, go to the Lambda Cloud Dashboard, select your instance, and click **Terminate**. Double-check that it disappears from your active instances list to ensure billing has stopped.
 
-## 6. Showcasing Your Model on Hugging Face Spaces
+## 6. Other Sources for Checkpoints
+
+If you prefer to download pre-trained checkpoints (base or chat-tuned) rather than training them yourself, here are your best options:
+
+### A. Hugging Face Hub (Recommended)
+The **Hugging Face Hub** is the primary source for community-shared checkpoints.
+
+| Source | Link | Description |
+|--------|------|-------------|
+| **Official/Students** | [nanochat-students](https://huggingface.co/nanochat-students) | The official community hub for nanochat. Look for `base-d24` or `chatsft-d24` to match the current leaderboard. |
+| **Karpathy** | [karpathy](https://huggingface.co/karpathy) | Andrej Karpathy's HF profile. Check for models like `nanochat-d34` or newer variations. |
+| **Community** | [Hugging Face Search](https://huggingface.co/models?search=nanochat) | Search for "nanochat" to see checkpoints uploaded by other researchers. |
+
+### B. Standard OpenAI GPT-2 Models
+The `scripts/base_eval.py` script supports evaluating standard GPT-2 models via the Hugging Face `transformers` library.
+
+```bash
+# Example: Evaluate GPT-2 124M
+torchrun --nproc_per_node=8 -m scripts.base_eval --hf-path openai-community/gpt2
+```
+
+> [!NOTE]  
+> Standard GPT-2 models use the original OpenAI architecture. While `nanochat` can evaluate them, they differ slightly from native `nanochat` models (e.g., `nanochat` uses softcapping and specific weight initialization).
+
+### C. Requirements for Loading
+To load a native `.pt` checkpoint into `nanochat`, you **must** have the following files in the same directory:
+1.  **Model Weights:** `model_XXXXXX.pt`
+2.  **Metadata:** `meta_XXXXXX.json` (Contains `model_config` like depth and width).
+3.  **Tokenizer:** The `tokenizer/` directory must contain the `tokenizer.pkl` or `tokenizer.model` used for that run.
+
+Place downloaded files into a subfolder of `base_checkpoints/` or `chatsft_checkpoints/` and load them via the `--model-tag` argument.
+
+## 7. Showcasing Your Model on Hugging Face Spaces
 
 You can easily host your trained model for free using Hugging Face (HF) Spaces and Gradio.
 
