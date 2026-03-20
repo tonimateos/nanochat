@@ -107,7 +107,7 @@ def load_checkpoint(checkpoint_dir, step, device, load_optimizer=False, rank=0):
     return model_data, optimizer_data, meta_data
 
 
-def build_model(checkpoint_dir, step, device, phase):
+def build_model(checkpoint_dir, step, device, phase, tokenizer_dir=None):
     """
     A bunch of repetitive code to build a model from a given checkpoint.
     Returns:
@@ -142,7 +142,7 @@ def build_model(checkpoint_dir, step, device, phase):
     else:
         model.train()
     # Load the Tokenizer
-    tokenizer = get_tokenizer()
+    tokenizer = get_tokenizer(tokenizer_dir=tokenizer_dir)
     # Sanity check: compatibility between model and tokenizer
     assert tokenizer.get_vocab_size() == model_config_kwargs["vocab_size"], f"Tokenizer vocab size {tokenizer.get_vocab_size()} does not match model config vocab size {model_config_kwargs['vocab_size']}"
     return model, tokenizer, meta_data
@@ -179,7 +179,7 @@ def find_last_step(checkpoint_dir):
 # -----------------------------------------------------------------------------
 # convenience functions that take into account nanochat's directory structure
 
-def load_model_from_dir(checkpoints_dir, device, phase, model_tag=None, step=None):
+def load_model_from_dir(checkpoints_dir, device, phase, model_tag=None, step=None, tokenizer_dir=None):
     if model_tag is None:
         # guess the model tag by defaulting to the largest model
         model_tag = find_largest_model(checkpoints_dir)
@@ -191,7 +191,7 @@ def load_model_from_dir(checkpoints_dir, device, phase, model_tag=None, step=Non
     assert step is not None, f"No checkpoints found in {checkpoint_dir}"
     # build the model
     log0(f"Loading model from {checkpoint_dir} with step {step}")
-    model, tokenizer, meta_data = build_model(checkpoint_dir, step, device, phase)
+    model, tokenizer, meta_data = build_model(checkpoint_dir, step, device, phase, tokenizer_dir=tokenizer_dir)
     return model, tokenizer, meta_data
 
 def load_model(source, *args, **kwargs):
@@ -204,10 +204,11 @@ def load_model(source, *args, **kwargs):
     checkpoints_dir = os.path.join(base_dir, model_dir)
     return load_model_from_dir(checkpoints_dir, *args, **kwargs)
 
-def load_model_direct(checkpoint_path, device, phase):
+def load_model_direct(checkpoint_path, device, phase, tokenizer_dir=None):
     """
     Load a model from a specific .pt file path. 
     Assumes the metadata file meta_XXXXXX.json is in the same directory.
+    If tokenizer_dir is not provided, it looks for tokenizer.pkl in the same directory.
     """
     checkpoint_dir = os.path.dirname(checkpoint_path)
     filename = os.path.basename(checkpoint_path)
@@ -216,8 +217,15 @@ def load_model_direct(checkpoint_path, device, phase):
     if not match:
         raise ValueError(f"Could not extract step from filename {filename}. Expected format: model_XXXXXX.pt")
     step = int(match.group(1))
+
+    # Intelligent fallback for tokenizer: if not provided, check the checkpoint directory
+    if tokenizer_dir is None:
+        if os.path.exists(os.path.join(checkpoint_dir, "tokenizer.pkl")):
+            tokenizer_dir = checkpoint_dir
+            log0(f"Auto-detected tokenizer.pkl in checkpoint directory: {tokenizer_dir}")
+
     log0(f"Loading model direct from {checkpoint_path} (step {step})")
-    return build_model(checkpoint_dir, step, device, phase)
+    return build_model(checkpoint_dir, step, device, phase, tokenizer_dir=tokenizer_dir)
 
 def load_optimizer_state(source, device, rank, model_tag=None, step=None):
     """Load just the optimizer shard for a given rank, without re-loading the model."""
