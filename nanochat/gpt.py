@@ -37,6 +37,9 @@ class GPTConfig:
     # Characters: L=long (full context), S=short (quarter context)
     # Examples: "L"=all full context, "SL"=alternating, "SSL"=two short then one long
     window_pattern: str = "SSSL"
+    qk_norm: bool = True
+    logit_softcap: float = 0.0 # 0.0 means disabled
+    rope_base: float = 100000.0
 
 
 def norm(x):
@@ -65,6 +68,7 @@ def apply_rotary_emb(x, cos, sin):
 class CausalSelfAttention(nn.Module):
     def __init__(self, config, layer_idx):
         super().__init__()
+        self.config = config
         self.layer_idx = layer_idx
         self.n_head = config.n_head
         self.n_kv_head = config.n_kv_head
@@ -97,9 +101,10 @@ class CausalSelfAttention(nn.Module):
         # Apply Rotary Embeddings to queries and keys to get relative positional encoding
         cos, sin = cos_sin
         q, k = apply_rotary_emb(q, cos, sin), apply_rotary_emb(k, cos, sin)
-        q, k = norm(q), norm(k) # QK norm
-        q = q * 1.2  # sharper attention (split scale between Q and K), TODO think through better
-        k = k * 1.2
+        if hasattr(self.config, "qk_norm") and self.config.qk_norm:
+            q, k = norm(q), norm(k) # QK norm
+            q = q * 1.2  # sharper attention (split scale between Q and K)
+            k = k * 1.2
 
         # Flash Attention (FA3 on Hopper+, PyTorch SDPA fallback elsewhere)
         # window_size is (left, right) tuple: (N, 0) for causal, (-1, 0) for full context
@@ -260,8 +265,9 @@ class GPT(nn.Module):
             for ve in self.value_embeds.values():
                 ve.to(dtype=COMPUTE_DTYPE)
 
-    def _precompute_rotary_embeddings(self, seq_len, head_dim, base=100000, device=None):
-        # TODO: bump base theta more? e.g. 100K is more common more recently
+    def _precompute_rotary_embeddings(self, seq_len, head_dim, base=None, device=None):
+        if base is None:
+            base = getattr(self.config, "rope_base", 100000.0)
         # autodetect the device from model embeddings
         if device is None:
             device = self.transformer.wte.weight.device
@@ -460,11 +466,14 @@ class GPT(nn.Module):
         x = norm(x)
 
         # Forward the lm_head (compute logits)
-        softcap = 15 # smoothly cap the logits to the range [-softcap, softcap]
         logits = self.lm_head(x) # (B, T, padded_vocab_size) <- very big tensor, large amount of memory
         logits = logits[..., :self.config.vocab_size] # slice to remove padding
         logits = logits.float() # switch to fp32 for logit softcap and loss computation
-        logits = softcap * torch.tanh(logits / softcap) # squash the logits
+
+        # Optional: logit softcapping (for backward compatibility with models trained without it)
+        if hasattr(self.config, "logit_softcap") and self.config.logit_softcap > 0:
+            softcap = self.config.logit_softcap
+            logits = softcap * torch.tanh(logits / softcap)
 
         if targets is not None:
             # training: given the targets, compute and return the loss

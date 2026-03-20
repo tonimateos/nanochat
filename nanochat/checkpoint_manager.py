@@ -22,10 +22,10 @@ def log0(message):
 
 def _patch_missing_config_keys(model_config_kwargs):
     """Add default values for new config keys missing in old checkpoints."""
-    # Old models were trained with full context (no sliding window)
+    # Old models were often trained with SSSL (sliding window)
     if "window_pattern" not in model_config_kwargs:
-        model_config_kwargs["window_pattern"] = "L"
-        log0(f"Patching missing window_pattern in model config to 'L'")
+        model_config_kwargs["window_pattern"] = "SSSL"
+        log0(f"Patching missing window_pattern in model config to 'SSSL'")
 
 def _patch_missing_keys(model_data, model_config, device=None):
     """Add default values for new parameters that may be missing in old checkpoints."""
@@ -127,6 +127,20 @@ def build_model(checkpoint_dir, step, device, phase, tokenizer_dir=None):
     model_data = {k.removeprefix("_orig_mod."): v for k, v in model_data.items()}
     model_config_kwargs = meta_data["model_config"]
     _patch_missing_config_keys(model_config_kwargs)
+
+    # Legacy detection: if certain keys are missing from model_data, it's an old model
+    is_legacy = "resid_lambdas" not in model_data and "transformer.h.0.attn.ve_gate.weight" not in model_data
+    if is_legacy:
+        log0("Legacy checkpoint detected (missing resid_lambdas/ve_gate). Disabling QK norm and logit softcapping. Setting rope_base=10000.0")
+        model_config_kwargs["qk_norm"] = False
+        model_config_kwargs["logit_softcap"] = 0.0
+        model_config_kwargs["rope_base"] = 10000.0
+    else:
+        # Modern models default to these being enabled
+        model_config_kwargs["qk_norm"] = model_config_kwargs.get("qk_norm", True)
+        model_config_kwargs["logit_softcap"] = model_config_kwargs.get("logit_softcap", 15.0)
+        model_config_kwargs["rope_base"] = model_config_kwargs.get("rope_base", 100000.0)
+
     log0(f"Building model with config: {model_config_kwargs}")
     model_config = GPTConfig(**model_config_kwargs)
     _patch_missing_keys(model_data, model_config, device=device)
