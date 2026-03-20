@@ -206,9 +206,11 @@ Clone your Space to your local machine (or add files directly via the HF web int
    from nanochat.checkpoint_manager import load_model_direct
    from nanochat.engine import Engine
 
-   # 1. Download your model from your HF model repo
-   # Replace 'username/my-nanochat-gpt2' with your actual repo ID and the correct filename
-   checkpoint_path = hf_hub_download(repo_id="username/my-nanochat-gpt2", filename="model_YYYYYY.pt")
+   # 1. Download model AND metadata from your HF model repo
+   # Both are required for the model to load correctly.
+   repo_id = "username/my-nanochat-gpt2"
+   checkpoint_path = hf_hub_download(repo_id=repo_id, filename="model_033491.pt")
+   hf_hub_download(repo_id=repo_id, filename="meta_033491.json") 
    
    # 2. Load the model and engine
    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

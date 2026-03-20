@@ -27,17 +27,50 @@ def _patch_missing_config_keys(model_config_kwargs):
         model_config_kwargs["window_pattern"] = "L"
         log0(f"Patching missing window_pattern in model config to 'L'")
 
-def _patch_missing_keys(model_data, model_config):
+def _patch_missing_keys(model_data, model_config, device=None):
     """Add default values for new parameters that may be missing in old checkpoints."""
     n_layer = model_config.n_layer
     # resid_lambdas defaults to 1.0 (identity scaling)
     if "resid_lambdas" not in model_data:
-        model_data["resid_lambdas"] = torch.ones(n_layer)
+        model_data["resid_lambdas"] = torch.ones(n_layer, device=device)
         log0(f"Patching missing resid_lambdas in model data to 1.0")
     # x0_lambdas defaults to 0.0 (disabled)
     if "x0_lambdas" not in model_data:
-        model_data["x0_lambdas"] = torch.zeros(n_layer)
+        model_data["x0_lambdas"] = torch.zeros(n_layer, device=device)
         log0(f"Patching missing x0_lambdas in model data to 0.0")
+    
+    # New features patching: smear, backout, and value embeddings
+    if "smear_lambda" not in model_data:
+        model_data["smear_lambda"] = torch.zeros(1, device=device)
+        log0(f"Patching missing smear_lambda in model data to 0.0")
+    if "backout_lambda" not in model_data:
+        model_data["backout_lambda"] = torch.zeros(1, device=device) # default 0.0 for compatibility
+        log0(f"Patching missing backout_lambda in model data to 0.0")
+    if "smear_gate.weight" not in model_data:
+        # smear_gate is Linear(24, 1, bias=False)
+        model_data["smear_gate.weight"] = torch.zeros((1, 24), device=device)
+        log0(f"Patching missing smear_gate.weight in model data to zeros")
+    
+    # Value embeddings and their gates
+    from nanochat.gpt import has_ve
+    head_dim = model_config.n_embd // model_config.n_head
+    kv_dim = model_config.n_kv_head * head_dim
+    if "transformer.wte.weight" in model_data:
+        vocab_size = model_data["transformer.wte.weight"].shape[0]
+        # Use existing tensor dtype as a hint for new ones (usually bf16 or fp32)
+        dtype = model_data["transformer.wte.weight"].dtype
+        for i in range(n_layer):
+            if has_ve(i, n_layer):
+                ve_key = f"value_embeds.{i}.weight"
+                if ve_key not in model_data:
+                    model_data[ve_key] = torch.zeros((vocab_size, kv_dim), device=device, dtype=dtype)
+                    log0(f"Patching missing {ve_key} in model data to zeros")
+                
+                gate_key = f"transformer.h.{i}.attn.ve_gate.weight"
+                if gate_key not in model_data:
+                    # ve_gate is Linear(12, n_kv_head, bias=False)
+                    model_data[gate_key] = torch.zeros((model_config.n_kv_head, 12), device=device, dtype=dtype)
+                    log0(f"Patching missing {gate_key} in model data to zeros")
 
 def save_checkpoint(checkpoint_dir, step, model_data, optimizer_data, meta_data, rank=0):
     if rank == 0:
@@ -96,7 +129,7 @@ def build_model(checkpoint_dir, step, device, phase):
     _patch_missing_config_keys(model_config_kwargs)
     log0(f"Building model with config: {model_config_kwargs}")
     model_config = GPTConfig(**model_config_kwargs)
-    _patch_missing_keys(model_data, model_config)
+    _patch_missing_keys(model_data, model_config, device=device)
     with torch.device("meta"):
         model = GPT(model_config)
     # Load the model state
