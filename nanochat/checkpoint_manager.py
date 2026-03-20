@@ -108,30 +108,34 @@ def build_model(checkpoint_dir, step, device, phase, tokenizer_dir=None):
     # Load the model state
     # We use strict=False to allow loading legacy checkpoints into the modern GPT class
     # without needing to pre-patch the model_data dictionary with large zero-tensors.
-    model.load_state_dict(model_data, strict=False, assign=True)
+    load_result = model.load_state_dict(model_data, strict=False, assign=True)
+    missing_keys = load_result.missing_keys
     
     # Cleanup model_data immediately to free RAM
     del model_data
     import gc
     gc.collect()
 
-    # Post-load patching: if the model was legacy, ensure we zero out modern features
-    # that weren't in the checkpoint, so they don't introduce random noise.
-    if is_legacy:
-        log0("Zeroing out modern feature parameters for legacy model compatibility...")
+    # Post-load patching: ensure all missing modern parameters are neutrally initialized
+    # so they don't apply random noise (from init_weights) to the model's output.
+    if missing_keys:
+        log0(f"Zeroing out {len(missing_keys)} missing parameters from checkpoint...")
         with torch.no_grad():
-            # resid_lambdas should be 1.0 (identity), x0_lambdas should be 0.0 (disabled)
-            model.resid_lambdas.fill_(1.0)
-            model.x0_lambdas.zero_()
-            model.smear_lambda.zero_()
-            model.backout_lambda.zero_()
-            model.smear_gate.weight.zero_()
-            # value_embeds and their gates should be zeroed
-            for ve in model.value_embeds.values():
-                ve.weight.zero_()
-            for block in model.transformer.h:
-                if block.attn.ve_gate is not None:
-                    block.attn.ve_gate.weight.zero_()
+            for key in missing_keys:
+                # Find the parameter in the model
+                parts = key.split('.')
+                module = model
+                for part in parts[:-1]:
+                    module = getattr(module, part)
+                param = getattr(module, parts[-1])
+                
+                if "resid_lambdas" in key:
+                    param.fill_(1.0) # Identity scaling
+                elif "window_pattern" not in key: # Skip non-parameter config keys
+                    if isinstance(param, torch.nn.Parameter):
+                        param.zero_()
+                    elif isinstance(param, torch.Tensor):
+                        param.zero_()
 
     # Put the model in the right training phase / mode
     if phase == "eval":
