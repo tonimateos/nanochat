@@ -174,52 +174,37 @@ You can easily host your trained model for free using Hugging Face (HF) Spaces a
 ### Step 3: Configure your Space
 Clone your Space to your local machine (or add files directly via the HF web interface). You need the following files inside your Space:
 
-1.  **Your codebase:** Copy the `nanochat` directory into your Space using one of these methods:
-    -   **Option A (Web UI):** On the **Files** tab of your Space, click **+ Add file** -> **Upload files**. Drag and drop the **`nanochat/`** folder (from your local git repo) into the upload area. This includes all the core model and engine logic.
-    -   **Option B (Git CLI):** Clone your Space locally, copy the `nanochat/` folder from your development repo into the Space's local directory, then `git add`, `commit`, and `push`.
-
-> [!WARNING]  
-> **Avoid Nested Folders:** Ensure you are uploading the *inner* `nanochat/` folder (the Python package containing `__init__.py`). If you upload the entire repository, you will end up with a nested structure like `nanochat/nanochat/`, which will cause `ModuleNotFoundError`.
-2. **`requirements.txt`:** HF Gradio spaces automatically install dependencies from this file. Create it and add:
+1. **Your codebase:** Clone or copy the `nanochat` code into the Space repository.
+2. **`requirements.txt`:** 
    ```text
    torch>=2.4.0
    huggingface-hub
    transformers
    tqdm
    tiktoken
-   rustbpe
    ```
-   *(Note: Add any other dependencies from `pyproject.toml` that your specific codebase requires).*
-
 3. **`app.py`:** Create this python script to serve the web UI using Gradio:
    ```python
-   import os
-   import sys
-
-   # CRITICAL: Add the current directory to path BEFORE any other imports
-   # so that the 'nanochat' package can be found effectively.
-   sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-
    import gradio as gr
    import torch
+   import os
    from huggingface_hub import hf_hub_download
    from nanochat.checkpoint_manager import load_model_direct
    from nanochat.engine import Engine
 
-   # 1. Download model, metadata, AND tokenizer from your HF model repo
-   # All three are required for the model to load and run correctly.
+   # 1. Download your model, metadata, and tokenizer from your HF model repo
+   # Replace 'username/my-nanochat-gpt2' with your actual repo ID 
    repo_id = "username/my-nanochat-gpt2"
-   checkpoint_path = hf_hub_download(repo_id=repo_id, filename="model_033491.pt")
-   hf_hub_download(repo_id=repo_id, filename="meta_033491.json") 
-   hf_hub_download(repo_id=repo_id, filename="tokenizer.pkl") 
+   checkpoint_path = hf_hub_download(repo_id=repo_id, filename="model_YYYYYY.pt")
+   _ = hf_hub_download(repo_id=repo_id, filename="meta_YYYYYY.json")
+   tokenizer_path = hf_hub_download(repo_id=repo_id, filename="tokenizer.pkl")
    
    # 2. Load the model and engine
-   # load_model_direct will automatically find meta and tokenizer files in the same cache folder.
    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-   model, tokenizer, _ = load_model_direct(checkpoint_path, device, phase="eval")
+   # Point load_model_direct to the directory containing tokenizer.pkl
+   model, tokenizer, _ = load_model_direct(checkpoint_path, device, phase="eval", tokenizer_dir=os.path.dirname(tokenizer_path))
    engine = Engine(model, tokenizer)
 
-   # 3. Define the chat function
    def chat_fn(message, history):
        bos = tokenizer.get_bos_token_id()
        user_start = tokenizer.encode_special("<|user_start|>")
@@ -242,9 +227,16 @@ Clone your Space to your local machine (or add files directly via the HF web int
            response_tokens.append(token)
            yield tokenizer.decode(response_tokens)
 
-   # 4. Launch the UI
    demo = gr.ChatInterface(chat_fn, title="Nanochat GPT-2 Demo")
    demo.launch()
    ```
 
 Once you commit and push these files to your Space on Hugging Face, it will automatically install the requirements and launch the Gradio web UI publicly for anyone to use!
+
+## 8. Troubleshooting
+
+### Gibberish or Nonsense Output
+If your model produces gibberish when you talk to it:
+1.  **Check your Checkpoint:** Ensure you uploaded a checkpoint from the `chatsft_checkpoints/` folder. If you accidentally uploaded a checkpoint from `base_checkpoints/`, your model is a "Base Model" (pretraining only) and doesn't understand the special chat tokens.
+2.  **Tokenizer Dir:** Make sure `load_model_direct` is correctly pointed to the directory containing your `tokenizer.pkl`. If it uses the wrong tokenizer, the token IDs will be mismatched.
+3.  **Special Tokens:** Check your `app.py` uses the same special tokens (e.g., `<|user_start|>`) that your tokenizer was trained with.
