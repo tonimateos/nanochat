@@ -87,10 +87,12 @@ def build_model(checkpoint_dir, step, device, phase, tokenizer_dir=None):
         model_config_kwargs["logit_softcap"] = 0.0
         model_config_kwargs["rope_base"] = 10000.0
     else:
-        # Modern models default to these being enabled
-        model_config_kwargs["qk_norm"] = model_config_kwargs.get("qk_norm", True)
+        # For non-legacy models (those with resid_lambdas), we still need to be careful
+        # with keys that were added very recently (like qk_norm).
+        # d34 was trained with qk_norm=False and rope_base=10000.0.
+        model_config_kwargs["qk_norm"] = model_config_kwargs.get("qk_norm", False)
         model_config_kwargs["logit_softcap"] = model_config_kwargs.get("logit_softcap", 15.0)
-        model_config_kwargs["rope_base"] = model_config_kwargs.get("rope_base", 100000.0)
+        model_config_kwargs["rope_base"] = model_config_kwargs.get("rope_base", 10000.0)
 
     log0(f"Building model with config: {model_config_kwargs}")
     model_config = GPTConfig(**model_config_kwargs)
