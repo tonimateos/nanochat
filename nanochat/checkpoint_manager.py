@@ -27,50 +27,6 @@ def _patch_missing_config_keys(model_config_kwargs):
         model_config_kwargs["window_pattern"] = "SSSL"
         log0(f"Patching missing window_pattern in model config to 'SSSL'")
 
-def _patch_missing_keys(model_data, model_config, device=None):
-    """Add default values for new parameters that may be missing in old checkpoints."""
-    n_layer = model_config.n_layer
-    # resid_lambdas defaults to 1.0 (identity scaling)
-    if "resid_lambdas" not in model_data:
-        model_data["resid_lambdas"] = torch.ones(n_layer, device=device)
-        log0(f"Patching missing resid_lambdas in model data to 1.0")
-    # x0_lambdas defaults to 0.0 (disabled)
-    if "x0_lambdas" not in model_data:
-        model_data["x0_lambdas"] = torch.zeros(n_layer, device=device)
-        log0(f"Patching missing x0_lambdas in model data to 0.0")
-    
-    # New features patching: smear, backout, and value embeddings
-    if "smear_lambda" not in model_data:
-        model_data["smear_lambda"] = torch.zeros(1, device=device)
-        log0(f"Patching missing smear_lambda in model data to 0.0")
-    if "backout_lambda" not in model_data:
-        model_data["backout_lambda"] = torch.zeros(1, device=device) # default 0.0 for compatibility
-        log0(f"Patching missing backout_lambda in model data to 0.0")
-    if "smear_gate.weight" not in model_data:
-        # smear_gate is Linear(24, 1, bias=False)
-        model_data["smear_gate.weight"] = torch.zeros((1, 24), device=device)
-        log0(f"Patching missing smear_gate.weight in model data to zeros")
-    
-    # Value embeddings and their gates
-    from nanochat.gpt import has_ve
-    head_dim = model_config.n_embd // model_config.n_head
-    kv_dim = model_config.n_kv_head * head_dim
-    if "transformer.wte.weight" in model_data:
-        vocab_size = model_data["transformer.wte.weight"].shape[0]
-        # Use existing tensor dtype as a hint for new ones (usually bf16 or fp32)
-        dtype = model_data["transformer.wte.weight"].dtype
-        for i in range(n_layer):
-            if has_ve(i, n_layer):
-                ve_key = f"value_embeds.{i}.weight"
-                if ve_key not in model_data:
-                    model_data[ve_key] = torch.zeros((vocab_size, kv_dim), device=device, dtype=dtype)
-                    log0(f"Patching missing {ve_key} in model data to zeros")
-                
-                gate_key = f"transformer.h.{i}.attn.ve_gate.weight"
-                if gate_key not in model_data:
-                    # ve_gate is Linear(12, n_kv_head, bias=False)
-                    model_data[gate_key] = torch.zeros((model_config.n_kv_head, 12), device=device, dtype=dtype)
-                    log0(f"Patching missing {gate_key} in model data to zeros")
 
 def save_checkpoint(checkpoint_dir, step, model_data, optimizer_data, meta_data, rank=0):
     if rank == 0:
@@ -117,12 +73,7 @@ def build_model(checkpoint_dir, step, device, phase, tokenizer_dir=None):
     """
     assert phase in ["train", "eval"], f"Invalid phase: {phase}"
     model_data, optimizer_data, meta_data = load_checkpoint(checkpoint_dir, step, device, load_optimizer=False)
-    if device.type in {"cpu", "mps"}:
-        # Convert bfloat16 tensors to float for CPU inference
-        model_data = {
-            k: v.float() if v.dtype == torch.bfloat16 else v
-            for k, v in model_data.items()
-        }
+
     # Hack: fix torch compile issue, which prepends all keys with _orig_mod.
     model_data = {k.removeprefix("_orig_mod."): v for k, v in model_data.items()}
     model_config_kwargs = meta_data["model_config"]
@@ -143,13 +94,43 @@ def build_model(checkpoint_dir, step, device, phase, tokenizer_dir=None):
 
     log0(f"Building model with config: {model_config_kwargs}")
     model_config = GPTConfig(**model_config_kwargs)
-    _patch_missing_keys(model_data, model_config, device=device)
+    
+    # We use meta device for initialization to avoid RAM spikes during model creation
     with torch.device("meta"):
         model = GPT(model_config)
-    # Load the model state
+    
+    # Materialize the model on the target device (CPU or GPU)
     model.to_empty(device=device)
-    model.init_weights() # note: this is dumb, but we need to init the rotary embeddings. TODO: fix model re-init
-    model.load_state_dict(model_data, strict=True, assign=True)
+    model.init_weights() # Init weights to defaults (some are non-zero)
+
+    # Load the model state
+    # We use strict=False to allow loading legacy checkpoints into the modern GPT class
+    # without needing to pre-patch the model_data dictionary with large zero-tensors.
+    model.load_state_dict(model_data, strict=False, assign=True)
+    
+    # Cleanup model_data immediately to free RAM
+    del model_data
+    import gc
+    gc.collect()
+
+    # Post-load patching: if the model was legacy, ensure we zero out modern features
+    # that weren't in the checkpoint, so they don't introduce random noise.
+    if is_legacy:
+        log0("Zeroing out modern feature parameters for legacy model compatibility...")
+        with torch.no_grad():
+            # resid_lambdas should be 1.0 (identity), x0_lambdas should be 0.0 (disabled)
+            model.resid_lambdas.fill_(1.0)
+            model.x0_lambdas.zero_()
+            model.smear_lambda.zero_()
+            model.backout_lambda.zero_()
+            model.smear_gate.weight.zero_()
+            # value_embeds and their gates should be zeroed
+            for ve in model.value_embeds.values():
+                ve.weight.zero_()
+            for block in model.transformer.h:
+                if block.attn.ve_gate is not None:
+                    block.attn.ve_gate.weight.zero_()
+
     # Put the model in the right training phase / mode
     if phase == "eval":
         model.eval()

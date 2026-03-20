@@ -125,8 +125,11 @@ If you prefer to download pre-trained checkpoints (base or chat-tuned) rather th
 ### A. Hugging Face Hub (Recommended)
 The **Hugging Face Hub** is the primary source for external `nanochat` models. Look for repositories with `chatsft_checkpoints` and a matching `tokenizer.pkl`.
 
-**Top Recommendation:**
-- **[pankajmathur/nanochat-d34-finetuned](https://huggingface.co/pankajmathur/nanochat-d34-finetuned)**: A complete, high-quality set including finetuned d34 checkpoints and the correct matching tokenizer.
+**Top Recommendation (Best for Free HF Spaces):**
+- **[pankajmathur/nanochat-d34-finetuned (int8)](https://huggingface.co/pankajmathur/nanochat-d34-finetuned/tree/main/chatsft_checkpoints_int8/d34)**: A quantized version of the d34 model. It is only **2.65 GB** (vs 8.58 GB), making it much safer for the 16GB RAM limit on free Hugging Face Spaces.
+  - Model: `model_000700.pt` (from the `int8` folder)
+  - Metadata: `meta_000700.json` (from the `int8` folder)
+  - Tokenizer: `tokenizer/tokenizer.pkl` (from the root)
 
 | Source | Link | Description |
 |--------|------|-------------|
