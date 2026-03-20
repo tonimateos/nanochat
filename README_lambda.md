@@ -123,14 +123,16 @@ After downloading your models, go to the Lambda Cloud Dashboard, select your ins
 If you prefer to download pre-trained checkpoints (base or chat-tuned) rather than training them yourself, here are your best options:
 
 ### A. Hugging Face Hub (Recommended)
-The **Hugging Face Hub** is the primary source for community-shared checkpoints.
+The **Hugging Face Hub** is the primary source for external `nanochat` models. Look for repositories with `chatsft_checkpoints` and a matching `tokenizer.pkl`.
+
+**Top Recommendation:**
+- **[pankajmathur/nanochat-d34-finetuned](https://huggingface.co/pankajmathur/nanochat-d34-finetuned)**: A complete, high-quality set including finetuned d34 checkpoints and the correct matching tokenizer.
 
 | Source | Link | Description |
 |--------|------|-------------|
+| **Recommended (d34 SFT)** | [pankajmathur/nanochat-d34-finetuned](https://huggingface.co/pankajmathur/nanochat-d34-finetuned) | **Complete set (Model + Meta + Tokenizer).** <br> High-quality chat-tuned model (65k vocab). |
 | **Official/Students** | [nanochat-students](https://huggingface.co/nanochat-students) | The official community hub. Hosts `d20` series models. |
 | **Karpathy** | [karpathy](https://huggingface.co/karpathy) | Andrej Karpathy's HF profile. Check for larger `d32/d34` models. |
-| **Recommended (d24 Demo)** | [huwng/nanochat-d24](https://huggingface.co/huwng/nanochat-d24) | **Best for conversational demos.** <br> • [Model (model_033491.pt)](https://huggingface.co/huwng/nanochat-d24/resolve/main/chatsft_checkpoints/d24/model_033491.pt?download=true) <br> • [Metadata (meta_033491.json)](https://huggingface.co/huwng/nanochat-d24/resolve/main/chatsft_checkpoints/d24/meta_033491.json?download=true) <br> • [Tokenizer (tokenizer.pkl)](https://huggingface.co/ChrisMcCormick/nanochat-d24-2026-02-02/resolve/main/tokenizer/tokenizer.pkl?download=true) |
-| **High-Quality Base** | [ChrisMcCormick/nanochat-d24](https://huggingface.co/ChrisMcCormick/nanochat-d24-2026-02-02) | Excellent `d24` base model (CORE 0.2633). No chat tuning. |
 | **Search All** | [Hugging Face Search](https://huggingface.co/models?search=nanochat) | Search for "nanochat" to see all community-uploaded models. |
 
 ### B. Standard OpenAI GPT-2 Models
@@ -159,10 +161,13 @@ You can easily host your trained model for free using Hugging Face (HF) Spaces a
 ### Step 1: Upload your Checkpoint to HF
 1. Create a free account on [Hugging Face](https://huggingface.co/).
 2. Create a new **Model Repository** (e.g., `my-nanochat-gpt2`).
-3. **Upload the files to the root of the repository** via the web UI (or via [git-lfs](https://git-lfs.github.com/)):
-    - **Model Checkpoint:** e.g., `model_033491.pt` (the one with the highest step number).
-    - **Metadata File:** e.g., `meta_033491.json` (crucial for loading the architecture config).
-    - **Tokenizer File:** e.g., `tokenizer.pkl` or `tokenizer.model`.
+3. **Download and Upload the Files**: We recommend downloading a complete set from [pankajmathur/nanochat-d34-finetuned](https://huggingface.co/pankajmathur/nanochat-d34-finetuned/tree/main) and uploading them to the **root** of your repository:
+   - `model_000700.pt` (The weights)
+   - `meta_000700.json` (The metadata)
+   - `tokenizer.pkl` (The matching tokenizer)
+    - **Model Checkpoint:** e.g., `model_000700.pt` (the one with the highest step number).
+    - **Metadata File:** e.g., `meta_000700.json` (crucial for loading the architecture config).
+    - **Tokenizer File:** e.g., `tokenizer.pkl`.
 4.  Ensure the file names you upload match the `filename` arguments in your `app.py` script.
 
 ### Step 2: Create a Hugging Face Space
@@ -192,11 +197,11 @@ Clone your Space to your local machine (or add files directly via the HF web int
    from nanochat.checkpoint_manager import load_model_direct
    from nanochat.engine import Engine
 
-   # 1. Download your model, metadata, and tokenizer from your HF model repo
-   # Replace 'username/my-nanochat-gpt2' with your actual repo ID 
-   repo_id = "username/my-nanochat-gpt2"
-   checkpoint_path = hf_hub_download(repo_id=repo_id, filename="model_YYYYYY.pt")
-   _ = hf_hub_download(repo_id=repo_id, filename="meta_YYYYYY.json")
+   # 1. Download model, metadata, and tokenizer from YOUR HF model repo
+   # Update 'tonideville/my-nanochat-gpt2' with your actual repo ID 
+   repo_id = "tonideville/my-nanochat-gpt2"
+   checkpoint_path = hf_hub_download(repo_id=repo_id, filename="model_000700.pt")
+   _ = hf_hub_download(repo_id=repo_id, filename="meta_000700.json") # Ensure metadata is in same cache folder
    tokenizer_path = hf_hub_download(repo_id=repo_id, filename="tokenizer.pkl")
    
    # 2. Load the model and engine
