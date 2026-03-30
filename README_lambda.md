@@ -24,7 +24,9 @@ This guide outlines the steps to deploy and train Nanochat to full GPT-2 capabil
 2. **Select Instance Type:** 
    - For the fastest training (reference speedrun), select an **8x H100 (80GB)** instance (approx. $24/hr). 
    - Alternatively, an **8x A100 (80GB)** instance is also fully capable but will take slightly longer (around 4-5 hours). **Note:** Using an A100 will *not* result in a less capable model. The script is configured to use the exact same model depth, dataset scale, and sequence length regardless of hardware. The only difference is training wall-clock time and the precision used under the hood (A100 will use bfloat16 instead of the explicit FP8 requested by the H100 run, but this doesn't degrade capability).
-   - **Out of Capacity?** If standard on-demand instances are unavailable, you can use a **1-click cluster**. Lambda's H100 SXM5 clusters are typically deployed as 8-GPU nodes (with +208 vCPUs, +1800 GiB RAM). At ~$2.70/GPU/hr, the total cost for the 8-GPU node is ~$21.60/hr. This is actually a very powerful and cost-effective alternative for the speedrun.
+   - **Out of Capacity?** If standard on-demand instances are unavailable, some people try to use a **1-click cluster**. 
+     > [!CAUTION]
+     > **1-CLICK CLUSTERS HAVE A 1-WEEK MINIMUM COMMITMENT.** Unlike on-demand instances, 1-click clusters are billed in **weekly increments**. Even if you only need the GPUs for 2 hours, you will be billed for the full 168 hours of the reservation. For a Nanochat speedrun, this is almost never cost-effective compared to waiting for an on-demand instance.
 3. Select an Ubuntu image (e.g., Ubuntu 22.04 or 24.04 with standard ML drivers).
 4. Select your SSH key and launch the instance.
 
@@ -104,6 +106,8 @@ By default, Lambda Cloud only opens port 22 (SSH). To access the web UI, you mus
 
 > [!CAUTION]  
 > **🛑 WHEN YOU STOP PAYING:** You only stop paying when you completely **Terminate / Delete** the instance. Simply stopping the training script or closing SSH **does not** stop the billing. On Lambda, if you restart or stop the machine, you might still be billed for the storage or the reservation of the node. **To stop the meter, you must delete the instance.**
+> 
+> **FOR 1-CLICK CLUSTERS:** Terminating an instance earlier than the minimum commitment (e.g. within 2 hours of a 1-week reservation) **DOES NOT** stop the billing for that week. You will still be charged for the entire duration of your reservation.
 
 **Before you terminate:**
 Since terminating destroys all data on the node, make sure to download any checkpoints or edited files you want to keep. By default, the `speedrun.sh` script produces exactly two files: one final base model and one final SFT chat model (each ~3GB in size). From your local machine, run:
