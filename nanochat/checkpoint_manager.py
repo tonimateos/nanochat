@@ -22,22 +22,11 @@ def log0(message):
 
 def _patch_missing_config_keys(model_config_kwargs):
     """Add default values for new config keys missing in old checkpoints."""
-    # Old models were trained with full context (no sliding window)
+    # Old models were often trained with SSSL (sliding window)
     if "window_pattern" not in model_config_kwargs:
-        model_config_kwargs["window_pattern"] = "L"
-        log0(f"Patching missing window_pattern in model config to 'L'")
+        model_config_kwargs["window_pattern"] = "SSSL"
+        log0(f"Patching missing window_pattern in model config to 'SSSL'")
 
-def _patch_missing_keys(model_data, model_config):
-    """Add default values for new parameters that may be missing in old checkpoints."""
-    n_layer = model_config.n_layer
-    # resid_lambdas defaults to 1.0 (identity scaling)
-    if "resid_lambdas" not in model_data:
-        model_data["resid_lambdas"] = torch.ones(n_layer)
-        log0(f"Patching missing resid_lambdas in model data to 1.0")
-    # x0_lambdas defaults to 0.0 (disabled)
-    if "x0_lambdas" not in model_data:
-        model_data["x0_lambdas"] = torch.zeros(n_layer)
-        log0(f"Patching missing x0_lambdas in model data to 0.0")
 
 def save_checkpoint(checkpoint_dir, step, model_data, optimizer_data, meta_data, rank=0):
     if rank == 0:
@@ -74,7 +63,7 @@ def load_checkpoint(checkpoint_dir, step, device, load_optimizer=False, rank=0):
     return model_data, optimizer_data, meta_data
 
 
-def build_model(checkpoint_dir, step, device, phase):
+def build_model(checkpoint_dir, step, device, phase, tokenizer_dir=None):
     """
     A bunch of repetitive code to build a model from a given checkpoint.
     Returns:
@@ -84,32 +73,77 @@ def build_model(checkpoint_dir, step, device, phase):
     """
     assert phase in ["train", "eval"], f"Invalid phase: {phase}"
     model_data, optimizer_data, meta_data = load_checkpoint(checkpoint_dir, step, device, load_optimizer=False)
-    if device.type in {"cpu", "mps"}:
-        # Convert bfloat16 tensors to float for CPU inference
-        model_data = {
-            k: v.float() if v.dtype == torch.bfloat16 else v
-            for k, v in model_data.items()
-        }
+
     # Hack: fix torch compile issue, which prepends all keys with _orig_mod.
     model_data = {k.removeprefix("_orig_mod."): v for k, v in model_data.items()}
     model_config_kwargs = meta_data["model_config"]
     _patch_missing_config_keys(model_config_kwargs)
+
+    # Legacy detection: if certain keys are missing from model_data, it's an old model
+    is_legacy = "resid_lambdas" not in model_data and "transformer.h.0.attn.ve_gate.weight" not in model_data
+    if is_legacy:
+        log0("Legacy checkpoint detected (missing resid_lambdas/ve_gate). Disabling QK norm and logit softcapping. Setting rope_base=10000.0")
+        model_config_kwargs["qk_norm"] = False
+        model_config_kwargs["logit_softcap"] = 0.0
+        model_config_kwargs["rope_base"] = 10000.0
+    else:
+        # For non-legacy models (those with resid_lambdas), we still need to be careful
+        # with keys that were added very recently (like qk_norm).
+        # d34 was trained with qk_norm=False and rope_base=10000.0.
+        model_config_kwargs["qk_norm"] = model_config_kwargs.get("qk_norm", False)
+        model_config_kwargs["logit_softcap"] = model_config_kwargs.get("logit_softcap", 15.0)
+        model_config_kwargs["rope_base"] = model_config_kwargs.get("rope_base", 10000.0)
+
     log0(f"Building model with config: {model_config_kwargs}")
     model_config = GPTConfig(**model_config_kwargs)
-    _patch_missing_keys(model_data, model_config)
+    
+    # We use meta device for initialization to avoid RAM spikes during model creation
     with torch.device("meta"):
         model = GPT(model_config)
-    # Load the model state
+    
+    # Materialize the model on the target device (CPU or GPU)
     model.to_empty(device=device)
-    model.init_weights() # note: this is dumb, but we need to init the rotary embeddings. TODO: fix model re-init
-    model.load_state_dict(model_data, strict=True, assign=True)
+    model.init_weights() # Init weights to defaults (some are non-zero)
+
+    # Load the model state
+    # We use strict=False to allow loading legacy checkpoints into the modern GPT class
+    # without needing to pre-patch the model_data dictionary with large zero-tensors.
+    load_result = model.load_state_dict(model_data, strict=False, assign=True)
+    missing_keys = load_result.missing_keys
+    
+    # Cleanup model_data immediately to free RAM
+    del model_data
+    import gc
+    gc.collect()
+
+    # Post-load patching: ensure all missing modern parameters are neutrally initialized
+    # so they don't apply random noise (from init_weights) to the model's output.
+    if missing_keys:
+        log0(f"Zeroing out {len(missing_keys)} missing parameters from checkpoint...")
+        with torch.no_grad():
+            for key in missing_keys:
+                # Find the parameter in the model
+                parts = key.split('.')
+                module = model
+                for part in parts[:-1]:
+                    module = getattr(module, part)
+                param = getattr(module, parts[-1])
+                
+                if "resid_lambdas" in key:
+                    param.fill_(1.0) # Identity scaling
+                elif "window_pattern" not in key: # Skip non-parameter config keys
+                    if isinstance(param, torch.nn.Parameter):
+                        param.zero_()
+                    elif isinstance(param, torch.Tensor):
+                        param.zero_()
+
     # Put the model in the right training phase / mode
     if phase == "eval":
         model.eval()
     else:
         model.train()
     # Load the Tokenizer
-    tokenizer = get_tokenizer()
+    tokenizer = get_tokenizer(tokenizer_dir=tokenizer_dir)
     # Sanity check: compatibility between model and tokenizer
     assert tokenizer.get_vocab_size() == model_config_kwargs["vocab_size"], f"Tokenizer vocab size {tokenizer.get_vocab_size()} does not match model config vocab size {model_config_kwargs['vocab_size']}"
     return model, tokenizer, meta_data
@@ -146,7 +180,7 @@ def find_last_step(checkpoint_dir):
 # -----------------------------------------------------------------------------
 # convenience functions that take into account nanochat's directory structure
 
-def load_model_from_dir(checkpoints_dir, device, phase, model_tag=None, step=None):
+def load_model_from_dir(checkpoints_dir, device, phase, model_tag=None, step=None, tokenizer_dir=None):
     if model_tag is None:
         # guess the model tag by defaulting to the largest model
         model_tag = find_largest_model(checkpoints_dir)
@@ -158,7 +192,7 @@ def load_model_from_dir(checkpoints_dir, device, phase, model_tag=None, step=Non
     assert step is not None, f"No checkpoints found in {checkpoint_dir}"
     # build the model
     log0(f"Loading model from {checkpoint_dir} with step {step}")
-    model, tokenizer, meta_data = build_model(checkpoint_dir, step, device, phase)
+    model, tokenizer, meta_data = build_model(checkpoint_dir, step, device, phase, tokenizer_dir=tokenizer_dir)
     return model, tokenizer, meta_data
 
 def load_model(source, *args, **kwargs):
@@ -170,6 +204,29 @@ def load_model(source, *args, **kwargs):
     base_dir = get_base_dir()
     checkpoints_dir = os.path.join(base_dir, model_dir)
     return load_model_from_dir(checkpoints_dir, *args, **kwargs)
+
+def load_model_direct(checkpoint_path, device, phase, tokenizer_dir=None):
+    """
+    Load a model from a specific .pt file path. 
+    Assumes the metadata file meta_XXXXXX.json is in the same directory.
+    If tokenizer_dir is not provided, it looks for tokenizer.pkl in the same directory.
+    """
+    checkpoint_dir = os.path.dirname(checkpoint_path)
+    filename = os.path.basename(checkpoint_path)
+    # Extract step from model_XXXXXX.pt
+    match = re.search(r"model_(\d+)\.pt", filename)
+    if not match:
+        raise ValueError(f"Could not extract step from filename {filename}. Expected format: model_XXXXXX.pt")
+    step = int(match.group(1))
+
+    # Intelligent fallback for tokenizer: if not provided, check the checkpoint directory
+    if tokenizer_dir is None:
+        if os.path.exists(os.path.join(checkpoint_dir, "tokenizer.pkl")):
+            tokenizer_dir = checkpoint_dir
+            log0(f"Auto-detected tokenizer.pkl in checkpoint directory: {tokenizer_dir}")
+
+    log0(f"Loading model direct from {checkpoint_path} (step {step})")
+    return build_model(checkpoint_dir, step, device, phase, tokenizer_dir=tokenizer_dir)
 
 def load_optimizer_state(source, device, rank, model_tag=None, step=None):
     """Load just the optimizer shard for a given rank, without re-loading the model."""
